@@ -7,25 +7,43 @@ from typing import List, Dict
 API_URL = "http://127.0.0.1:8000"
 
 def ensure_backend_running():
-    """Auto-start FastAPI backend in a background process if not already running."""
+    """Auto-start FastAPI backend in a background process if not already running.
+    Injects all Streamlit secrets as OS environment variables so the backend
+    can read LLM_API_KEY, LLM_MODEL, etc. even when running on Streamlit Cloud.
+    """
+    import subprocess
+    import sys
+    import os
+
+    # Build environment: start from current OS env and overlay Streamlit secrets
+    env = os.environ.copy()
+    try:
+        # st.secrets is available on Streamlit Cloud and local secrets.toml
+        for key, value in st.secrets.items():
+            env[key.upper()] = str(value)
+    except Exception:
+        pass  # Running locally without secrets.toml - that's fine
+
+    # Check if backend is already healthy
     try:
         res = requests.get(f"{API_URL}/health", timeout=1)
         if res.status_code == 200:
             return
     except Exception:
         pass
-    
-    import subprocess
-    import sys
+
+    # Launch backend with the enriched environment
     try:
         subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000", "--host", "127.0.0.1"],
+            [sys.executable, "-m", "uvicorn", "backend.main:app",
+             "--port", "8000", "--host", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=env
         )
-        time.sleep(3)
-    except Exception:
-        pass
+        time.sleep(4)  # Wait for the server to boot
+    except Exception as e:
+        st.warning(f"Could not auto-start backend: {e}")
 
 ensure_backend_running()
 

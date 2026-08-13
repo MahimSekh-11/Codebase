@@ -9,7 +9,7 @@ class LLMProvider:
     def __init__(self):
         self.provider = settings.llm_provider.lower()
         if self.provider == "gemini":
-            api_key = settings.llm_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_API_KEY")
+            api_key = settings.resolved_api_key
             if not api_key:
                 logger.warning("GEMINI API Key not found. LLM generation will fail.")
                 self._client = None
