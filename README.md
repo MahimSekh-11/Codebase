@@ -178,7 +178,6 @@ Open your browser and navigate to `http://localhost:8501`.
   * Description: List all currently indexed repositories and statistics.
 * **`DELETE /repository/{id}`**
   * Description: Safely deletes local code clones and its FAISS vector indices from disk.
-
 ### Chat API
 
 * **`POST /chat/`**
