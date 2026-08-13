@@ -1,10 +1,14 @@
-import streamlit as st
-import requests
+import os
 import time
 import urllib.parse
 from typing import List, Dict
 
-API_URL = "http://127.0.0.1:8000"
+import requests
+import streamlit as st
+
+# Internally within Docker, both services share localhost.
+# BACKEND_URL env var can override this for external deployments.
+API_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(
     page_title="CodeBase RAG",
