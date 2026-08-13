@@ -21,6 +21,14 @@ def ensure_backend_running():
     try:
         env = os.environ.copy()
         try:
+            # Force write secrets directly to a .env file so the backend's pydantic-settings is guaranteed to find it
+            with open(".env", "a") as f:
+                if "LLM_API_KEY" in st.secrets:
+                    f.write(f"\nLLM_API_KEY={st.secrets['LLM_API_KEY']}\n")
+                if "GEMINI_API_KEY" in st.secrets:
+                    f.write(f"\nLLM_API_KEY={st.secrets['GEMINI_API_KEY']}\n")
+                
+            env = os.environ.copy()
             for k, v in st.secrets.items():
                 if isinstance(v, str):
                     env[k] = v
