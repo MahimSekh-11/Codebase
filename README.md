@@ -164,21 +164,6 @@ Open your browser and navigate to `http://localhost:8501`.
 
 ---
 
-### Option B: Docker Deployment (Fast & Clean)
-
-Build and run both the API backend and the Streamlit frontend in a unified container setup:
-
-```bash
-# Build and spin up the services
-docker-compose up --build -d
-
-# Stop services
-docker-compose down
-```
-*Note: Streamlit will be available on port `8501` and FastAPI on `8000`.*
-
----
-
 ## 📡 API Endpoints
 
 ### Repository API
