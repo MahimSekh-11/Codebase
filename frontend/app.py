@@ -83,7 +83,18 @@ def main():
 
         st.divider()
         st.header("Settings")
-        user_api_key = st.text_input("Gemini API Key", type="password", help="Leave blank if using Streamlit secrets.")
+        # Store API key in session_state so it survives Streamlit reruns
+        if "user_api_key" not in st.session_state:
+            st.session_state.user_api_key = ""
+        entered_key = st.text_input(
+            "Gemini API Key",
+            type="password",
+            value=st.session_state.user_api_key,
+            key="api_key_input",
+            help="Paste your Gemini API key here."
+        )
+        if entered_key:
+            st.session_state.user_api_key = entered_key
 
         st.divider()
         st.header("Ingest New Repository")
@@ -161,10 +172,19 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Searching codebase and generating answer..."):
                 try:
-                    try:
-                        api_key = user_api_key or st.secrets.get("LLM_API_KEY") or st.secrets.get("GEMINI_API_KEY") or ""
-                    except Exception:
-                        api_key = user_api_key or ""
+                    # Read from session_state (persists across reruns)
+                    api_key = st.session_state.get("user_api_key", "")
+                    # Fall back to Streamlit cloud secrets if not manually provided
+                    if not api_key:
+                        try:
+                            api_key = st.secrets["LLM_API_KEY"]
+                        except Exception:
+                            pass
+                    if not api_key:
+                        try:
+                            api_key = st.secrets["GEMINI_API_KEY"]
+                        except Exception:
+                            pass
                         
                     payload = {
                         "repository_id": selected_repo_id,
