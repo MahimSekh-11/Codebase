@@ -1,108 +1,33 @@
-import subprocess
-import sys
-import os
-import signal
+import streamlit as st
+import requests
 import time
 import urllib.parse
 from typing import List, Dict
 
-import streamlit as st
-import requests
-
 API_URL = "http://127.0.0.1:8000"
 
-_STAMP_FILE = "/tmp/backend_deploy_stamp"
-_PID_FILE = "/tmp/backend_pid"
-
-def _get_deploy_stamp():
-    """Use the modification time of this script as a unique deploy ID."""
-    try:
-        return str(os.path.getmtime(__file__))
-    except Exception:
-        return "unknown"
-
-def _kill_old_backend():
-    """Kill previously spawned backend if PID file exists."""
-    try:
-        if os.path.exists(_PID_FILE):
-            with open(_PID_FILE) as f:
-                old_pid = int(f.read().strip())
-            try:
-                os.kill(old_pid, signal.SIGTERM)
-                time.sleep(1)
-            except Exception:
-                pass
-            os.remove(_PID_FILE)
-    except Exception:
-        pass
-
 def ensure_backend_running():
-    """Start (or restart) the FastAPI backend, always using the latest deployed code."""
-    import subprocess, sys, os
-
-    current_stamp = _get_deploy_stamp()
-    last_stamp = ""
+    """Auto-start FastAPI backend in a background process if not already running."""
     try:
-        if os.path.exists(_STAMP_FILE):
-            with open(_STAMP_FILE) as f:
-                last_stamp = f.read().strip()
+        res = requests.get(f"{API_URL}/health", timeout=1)
+        if res.status_code == 200:
+            return
     except Exception:
         pass
-
-    # If this is a fresh deployment (stamp changed) or backend is not responding, restart it
-    backend_alive = False
+    
+    import subprocess
+    import sys
     try:
-        res = requests.get(f"{API_URL}/health", timeout=2)
-        backend_alive = res.status_code == 200
-    except Exception:
-        pass
-
-    needs_restart = (not backend_alive) or (current_stamp != last_stamp)
-
-    if not needs_restart:
-        return  # Backend is healthy and code hasn't changed
-
-    # Kill old backend if running
-    _kill_old_backend()
-
-    # Build environment with secrets baked in
-    env = os.environ.copy()
-    try:
-        for k, v in st.secrets.items():
-            if isinstance(v, str):
-                env[k] = v
-        if "LLM_API_KEY" in st.secrets:
-            env["LLM_API_KEY"] = st.secrets["LLM_API_KEY"]
-        if "GEMINI_API_KEY" in st.secrets:
-            env["LLM_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-    except Exception:
-        pass
-
-    # Find repo root (where backend/ package lives)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.dirname(script_dir)  # go up from frontend/ to root
-
-    try:
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "backend.main:app",
-             "--port", "8000", "--host", "127.0.0.1"],
+        subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000", "--host", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            cwd=repo_root  # ensure backend package is importable
+            stderr=subprocess.DEVNULL
         )
-        # Save PID for future restarts
-        with open(_PID_FILE, "w") as f:
-            f.write(str(proc.pid))
-        # Save stamp so we don't restart again on next rerun
-        with open(_STAMP_FILE, "w") as f:
-            f.write(current_stamp)
-        time.sleep(4)  # wait for uvicorn to boot
-    except Exception as e:
+        time.sleep(3)
+    except Exception:
         pass
 
 ensure_backend_running()
-
 
 st.set_page_config(
     page_title="CodeBase RAG",
@@ -118,19 +43,6 @@ def get_repositories() -> List[Dict]:
     except Exception:
         pass
     return []
-
-def push_api_key_to_backend(api_key: str):
-    """Push the API key directly into the running backend's memory."""
-    if not api_key or not api_key.strip():
-        return
-    try:
-        requests.post(
-            f"{API_URL}/settings/api-key",
-            json={"api_key": api_key.strip()},
-            timeout=3
-        )
-    except Exception:
-        pass
 
 def main():
     st.title("🔍 CodeBase RAG")
@@ -152,37 +64,6 @@ def main():
                 st.rerun()
 
         st.divider()
-        st.header("Settings")
-        # Using key= makes Streamlit auto-sync this widget into st.session_state["user_api_key"]
-        st.text_input(
-            "Gemini API Key",
-            type="password",
-            key="user_api_key",
-            placeholder="AIza...",
-            help="Paste your Gemini API key. This is saved for your session."
-        )
-
-        # Resolve the best available API key
-        resolved_key = st.session_state.get("user_api_key", "").strip()
-        if not resolved_key:
-            try:
-                resolved_key = st.secrets["LLM_API_KEY"]
-            except Exception:
-                pass
-        if not resolved_key:
-            try:
-                resolved_key = st.secrets["GEMINI_API_KEY"]
-            except Exception:
-                pass
-
-        # Push resolved key to backend on EVERY page render (survives backend restarts)
-        if resolved_key:
-            push_api_key_to_backend(resolved_key)
-            st.success("✅ API Key is set", icon="🔑")
-        else:
-            st.warning("⚠️ No API key entered", icon="🔑")
-
-        st.divider()
         st.header("Ingest New Repository")
         
         repo_url = st.text_input("GitHub URL", placeholder="https://github.com/user/repo")
@@ -199,17 +80,14 @@ def main():
         uploaded_file = st.file_uploader("Upload ZIP Repository", type=["zip"])
         if uploaded_file and st.button("Process ZIP", use_container_width=True):
             with st.spinner("Uploading and indexing..."):
-                try:
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/zip")}
-                    res = requests.post(f"{API_URL}/repository/upload", files=files)
-                    if res.status_code == 200:
-                        st.success("Indexing started in background!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(f"Error from server: {res.text}")
-                except Exception as e:
-                    st.error(f"Failed to send file to server. Error: {e}")
+                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/zip")}
+                res = requests.post(f"{API_URL}/repository/upload", files=files)
+                if res.status_code == 200:
+                    st.success("Indexing started in background!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"Error: {res.text}")
                     
         st.divider()
         st.header("Repository Stats")
@@ -258,28 +136,10 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Searching codebase and generating answer..."):
                 try:
-                    # st.session_state["user_api_key"] is auto-synced by Streamlit widget key binding
-                    api_key = st.session_state.get("user_api_key", "").strip()
-                    # Fall back to Streamlit Cloud secrets if no key typed manually
-                    if not api_key:
-                        try:
-                            api_key = st.secrets["LLM_API_KEY"]
-                        except Exception:
-                            pass
-                    if not api_key:
-                        try:
-                            api_key = st.secrets["GEMINI_API_KEY"]
-                        except Exception:
-                            pass
-                    if not api_key:
-                        st.error("❌ No API key found! Please enter your Gemini API key in the Settings sidebar.")
-                        st.stop()
-                        
                     payload = {
                         "repository_id": selected_repo_id,
                         "question": prompt,
-                        "history_window": 5,
-                        "llm_api_key": api_key
+                        "history_window": 5
                     }
                     res = requests.post(f"{API_URL}/chat/", json=payload)
                     

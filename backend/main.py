@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from backend.api import health, repository, chat, settings
+from backend.api import health, repository, chat
 from backend.utils.logger import logger
-from backend.utils.config import settings as app_settings
+from backend.utils.config import settings
 
 app = FastAPI(
     title="CodeBase RAG API",
@@ -13,7 +13,6 @@ app = FastAPI(
 app.include_router(health.router, tags=["Health"])
 app.include_router(repository.router)
 app.include_router(chat.router)
-app.include_router(settings.router)
 
 @app.on_event("startup")
 async def startup_event():

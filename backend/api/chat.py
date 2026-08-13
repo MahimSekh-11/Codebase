@@ -17,7 +17,7 @@ async def chat_with_codebase(request: ChatRequest):
         raise HTTPException(status_code=404, detail="Repository not found or not fully indexed yet.")
         
     try:
-        response = retriever.answer_question(request.repository_id, request.question, request.llm_api_key)
+        response = retriever.answer_question(request.repository_id, request.question)
         return response
     except Exception as e:
         import traceback
