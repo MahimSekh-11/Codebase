@@ -1,8 +1,15 @@
 import os
+import sys
 import time
 import threading
 from pathlib import Path
 from typing import List, Dict
+
+# Ensure project root is in sys.path for cloud deployment environment
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import streamlit as st
 
 # Direct Python backend imports for robust deployment (works locally AND on live cloud URLs)
