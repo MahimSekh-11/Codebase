@@ -17,8 +17,8 @@ class LLMProvider:
                 try:
                     from google import genai
                     self._client = genai.Client(api_key=api_key)
-                    # Use gemini-2.5-flash - fast, capable, free-tier available
-                    self._model = settings.llm_model or "gemini-3.5-flash"
+                    # Use a supported model like gemini-3.5-flash or gemini-3.6-flash
+                    self._model = settings.llm_model or "gemini-3.6-flash"
                     logger.info(f"Gemini client initialized with model: {self._model}")
                 except Exception as e:
                     logger.error(f"Failed to initialize Gemini client: {e}")
@@ -31,7 +31,8 @@ class LLMProvider:
             from google import genai
             
             client = self._client
-            model_name = getattr(self, "_model", "gemini-3.5-flash")
+            # Fallback to the newer model if not provided
+            model_name = getattr(self, "_model", "gemini-3.6-flash")
 
             if api_key:
                 # If an API key is provided dynamically, create a temporary client
@@ -45,11 +46,13 @@ class LLMProvider:
                 return "Error: Gemini API key is missing or invalid. Please set LLM_API_KEY in your .env file or Streamlit secrets."
                 
             try:
-                response = client.models.generate_content(
+                # Migrated to the Interactions API as recommended by the error message
+                response = client.interactions.create(
                     model=model_name,
-                    contents=prompt,
+                    input=prompt,
                 )
-                return response.text
+                # The interactions response uses .output_text instead of .text
+                return response.output_text
             except Exception as e:
                 logger.error(f"LLM Generation failed: {e}")
                 return f"Error from LLM Provider: {str(e)}"
