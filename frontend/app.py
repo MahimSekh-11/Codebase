@@ -1,14 +1,33 @@
-import os
+import streamlit as st
+import requests
 import time
 import urllib.parse
 from typing import List, Dict
 
-import requests
-import streamlit as st
+API_URL = "http://127.0.0.1:8000"
 
-# Internally within Docker, both services share localhost.
-# BACKEND_URL env var can override this for external deployments.
-API_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+def ensure_backend_running():
+    """Auto-start FastAPI backend in a background process if not already running."""
+    try:
+        res = requests.get(f"{API_URL}/health", timeout=1)
+        if res.status_code == 200:
+            return
+    except Exception:
+        pass
+    
+    import subprocess
+    import sys
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000", "--host", "127.0.0.1"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        time.sleep(3)
+    except Exception:
+        pass
+
+ensure_backend_running()
 
 st.set_page_config(
     page_title="CodeBase RAG",
@@ -18,41 +37,16 @@ st.set_page_config(
 
 def get_repositories() -> List[Dict]:
     try:
-        res = requests.get(f"{API_URL}/repository/", timeout=5)
+        res = requests.get(f"{API_URL}/repository/")
         if res.status_code == 200:
             return res.json()
     except Exception:
         pass
     return []
 
-def is_backend_ready() -> bool:
-    try:
-        res = requests.get(f"{API_URL}/health", timeout=3)
-        return res.status_code == 200
-    except Exception:
-        return False
-
 def main():
     st.title("🔍 CodeBase RAG")
     st.subheader("AI-Powered GitHub Repository Understanding Assistant")
-
-    # Backend warmup check — auto-refresh every 3s until the backend is ready.
-    # On cloud (Render), uvicorn takes a few seconds to start after Streamlit.
-    if not is_backend_ready():
-        if "warmup_attempts" not in st.session_state:
-            st.session_state.warmup_attempts = 0
-        st.session_state.warmup_attempts += 1
-
-        st.warning(f"⏳ Backend is starting up... (attempt {st.session_state.warmup_attempts})")
-        st.info(f"Connecting to backend at `{API_URL}`")
-        st.caption("This page will automatically refresh every 3 seconds until the backend is ready.")
-        progress = min(st.session_state.warmup_attempts * 10, 90)
-        st.progress(progress)
-        time.sleep(3)
-        st.rerun()
-        return
-
-
 
     # Sidebar: Ingestion & Repo Selection
     with st.sidebar:
