@@ -62,6 +62,19 @@ def get_repositories() -> List[Dict]:
         pass
     return []
 
+def push_api_key_to_backend(api_key: str):
+    """Push the API key directly into the running backend's memory."""
+    if not api_key or not api_key.strip():
+        return
+    try:
+        requests.post(
+            f"{API_URL}/settings/api-key",
+            json={"api_key": api_key.strip()},
+            timeout=3
+        )
+    except Exception:
+        pass
+
 def main():
     st.title("🔍 CodeBase RAG")
     st.subheader("AI-Powered GitHub Repository Understanding Assistant")
@@ -91,7 +104,23 @@ def main():
             placeholder="AIza...",
             help="Paste your Gemini API key. This is saved for your session."
         )
-        if st.session_state.get("user_api_key"):
+
+        # Resolve the best available API key
+        resolved_key = st.session_state.get("user_api_key", "").strip()
+        if not resolved_key:
+            try:
+                resolved_key = st.secrets["LLM_API_KEY"]
+            except Exception:
+                pass
+        if not resolved_key:
+            try:
+                resolved_key = st.secrets["GEMINI_API_KEY"]
+            except Exception:
+                pass
+
+        # Push resolved key to backend on EVERY page render (survives backend restarts)
+        if resolved_key:
+            push_api_key_to_backend(resolved_key)
             st.success("✅ API Key is set", icon="🔑")
         else:
             st.warning("⚠️ No API key entered", icon="🔑")
