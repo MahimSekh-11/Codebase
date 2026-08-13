@@ -26,14 +26,27 @@ class LLMProvider:
         else:
             raise NotImplementedError(f"LLM Provider '{self.provider}' is not yet supported.")
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, api_key: str = None) -> str:
         if self.provider == "gemini":
-            if not self._client:
-                return "Error: Gemini API key is missing or invalid. Please set LLM_API_KEY in your .env file."
+            from google import genai
+            
+            client = self._client
+            model_name = getattr(self, "_model", "gemini-2.5-flash")
+
+            if api_key:
+                # If an API key is provided dynamically, create a temporary client
+                try:
+                    client = genai.Client(api_key=api_key)
+                except Exception as e:
+                    logger.error(f"Failed to initialize dynamic Gemini client: {e}")
+                    return f"Error: Failed to initialize Gemini client with provided API key: {e}"
+            
+            if not client:
+                return "Error: Gemini API key is missing or invalid. Please set LLM_API_KEY in your .env file or Streamlit secrets."
+                
             try:
-                from google import genai
-                response = self._client.models.generate_content(
-                    model=self._model,
+                response = client.models.generate_content(
+                    model=model_name,
                     contents=prompt,
                 )
                 return response.text

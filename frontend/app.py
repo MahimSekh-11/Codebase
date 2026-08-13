@@ -159,6 +159,19 @@ def main():
                         "question": prompt,
                         "history_window": 5
                     }
+                    
+                    # Pass the API key dynamically from Streamlit secrets if available
+                    try:
+                        api_key = (
+                            st.secrets.get("LLM_API_KEY")
+                            or st.secrets.get("GEMINI_API_KEY")
+                            or st.secrets.get("GOOGLE_API_KEY")
+                        )
+                        if api_key:
+                            payload["api_key"] = str(api_key)
+                    except Exception:
+                        pass
+                        
                     res = requests.post(f"{API_URL}/chat/", json=payload)
                     
                     if res.status_code == 200:
