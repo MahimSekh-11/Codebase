@@ -17,8 +17,8 @@ class LLMProvider:
                 try:
                     from google import genai
                     self._client = genai.Client(api_key=api_key)
-                    # Use gemini-2.5-flash - fast, capable, free-tier available
-                    self._model = settings.llm_model or "gemini-2.5-flash"
+                    # Use gemini-flash-latest to ensure an active, working flash model is selected
+                    self._model = settings.llm_model or "gemini-flash-latest"
                     logger.info(f"Gemini client initialized with model: {self._model}")
                 except Exception as e:
                     logger.error(f"Failed to initialize Gemini client: {e}")
