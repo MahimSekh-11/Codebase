@@ -17,8 +17,8 @@ class LLMProvider:
                 try:
                     from google import genai
                     self._client = genai.Client(api_key=api_key)
-                    # Use gemini-3.5-flash - fast, capable, free-tier available
-                    self._model = settings.llm_model or "gemini-3.5-flash"
+                    # Use gemini-2.5-flash - fast, capable, free-tier available
+                    self._model = settings.llm_model or "gemini-2.5-flash"
                     logger.info(f"Gemini client initialized with model: {self._model}")
                 except Exception as e:
                     logger.error(f"Failed to initialize Gemini client: {e}")
@@ -31,7 +31,7 @@ class LLMProvider:
             from google import genai
             
             client = self._client
-            model_name = getattr(self, "_model", "gemini-3.5-flash")
+            model_name = getattr(self, "_model", "gemini-2.5-flash")
 
             if api_key:
                 # If an API key is provided dynamically, create a temporary client
