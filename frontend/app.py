@@ -83,18 +83,18 @@ def main():
 
         st.divider()
         st.header("Settings")
-        # Store API key in session_state so it survives Streamlit reruns
-        if "user_api_key" not in st.session_state:
-            st.session_state.user_api_key = ""
-        entered_key = st.text_input(
+        # Using key= makes Streamlit auto-sync this widget into st.session_state["user_api_key"]
+        st.text_input(
             "Gemini API Key",
             type="password",
-            value=st.session_state.user_api_key,
-            key="api_key_input",
-            help="Paste your Gemini API key here."
+            key="user_api_key",
+            placeholder="AIza...",
+            help="Paste your Gemini API key. This is saved for your session."
         )
-        if entered_key:
-            st.session_state.user_api_key = entered_key
+        if st.session_state.get("user_api_key"):
+            st.success("✅ API Key is set", icon="🔑")
+        else:
+            st.warning("⚠️ No API key entered", icon="🔑")
 
         st.divider()
         st.header("Ingest New Repository")
@@ -172,9 +172,9 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Searching codebase and generating answer..."):
                 try:
-                    # Read from session_state (persists across reruns)
-                    api_key = st.session_state.get("user_api_key", "")
-                    # Fall back to Streamlit cloud secrets if not manually provided
+                    # st.session_state["user_api_key"] is auto-synced by Streamlit widget key binding
+                    api_key = st.session_state.get("user_api_key", "").strip()
+                    # Fall back to Streamlit Cloud secrets if no key typed manually
                     if not api_key:
                         try:
                             api_key = st.secrets["LLM_API_KEY"]
@@ -185,6 +185,9 @@ def main():
                             api_key = st.secrets["GEMINI_API_KEY"]
                         except Exception:
                             pass
+                    if not api_key:
+                        st.error("❌ No API key found! Please enter your Gemini API key in the Settings sidebar.")
+                        st.stop()
                         
                     payload = {
                         "repository_id": selected_repo_id,
