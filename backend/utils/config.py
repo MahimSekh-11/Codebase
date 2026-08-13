@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # LLM Settings
     llm_provider: str = "gemini"
-    llm_model: str = "gemini-3.1-flash"
+    llm_model: str = "gemini-3.5-flash"
     llm_api_key: str = ""
 
     # Embedding Settings
