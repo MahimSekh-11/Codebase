@@ -17,11 +17,21 @@ def ensure_backend_running():
     
     import subprocess
     import sys
+    import os
     try:
+        env = os.environ.copy()
+        try:
+            for k, v in st.secrets.items():
+                if isinstance(v, str):
+                    env[k] = v
+        except Exception:
+            pass
+
         subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000", "--host", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=env
         )
         time.sleep(3)
     except Exception:
