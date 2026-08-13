@@ -184,3 +184,4 @@ Open your browser and navigate to `http://localhost:8501`.
 * **`POST /chat/`**
   * Input: `{"repository_id": "...", "query": "..."}`
   * Description: Queries the vector store, retrieves code context, constructs prompts, and generates the LLM response with file sources.
+
