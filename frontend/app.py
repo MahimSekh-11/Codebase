@@ -1,10 +1,11 @@
 import streamlit as st
+import os
 import requests
 import time
 import urllib.parse
 from typing import List, Dict
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 def ensure_backend_running():
     """Auto-start FastAPI backend in a background process if not already running."""
