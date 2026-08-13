@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     
     # Embedding Settings
-    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_model: str = "text-embedding-004"
     
     # Retrieval Settings
     top_k: int = 10

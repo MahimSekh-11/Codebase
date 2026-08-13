@@ -5,7 +5,7 @@ pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 streamlit>=1.31.0
 gitpython>=3.1.40
-sentence-transformers>=2.5.0
+
 faiss-cpu
 google-genai
 python-multipart>=0.0.9
