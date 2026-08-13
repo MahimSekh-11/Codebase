@@ -18,16 +18,30 @@ st.set_page_config(
 
 def get_repositories() -> List[Dict]:
     try:
-        res = requests.get(f"{API_URL}/repository/")
+        res = requests.get(f"{API_URL}/repository/", timeout=5)
         if res.status_code == 200:
             return res.json()
     except Exception:
         pass
     return []
 
+def is_backend_ready() -> bool:
+    try:
+        res = requests.get(f"{API_URL}/health", timeout=3)
+        return res.status_code == 200
+    except Exception:
+        return False
+
 def main():
     st.title("🔍 CodeBase RAG")
     st.subheader("AI-Powered GitHub Repository Understanding Assistant")
+
+    # Backend warmup check (important on cloud deployments like Render)
+    if not is_backend_ready():
+        st.warning("⏳ Backend API is still warming up (loading embedding model)... Please wait a moment and refresh the page.")
+        st.info(f"Connecting to: `{API_URL}`")
+        st.stop()
+
 
     # Sidebar: Ingestion & Repo Selection
     with st.sidebar:
