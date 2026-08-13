@@ -8,3 +8,4 @@ class ChatRequest(BaseModel):
     repository_id: str
     question: str
     history_window: Optional[int] = 5
+    llm_api_key: Optional[str] = None

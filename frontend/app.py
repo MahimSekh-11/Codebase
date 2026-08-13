@@ -82,6 +82,10 @@ def main():
                 st.rerun()
 
         st.divider()
+        st.header("Settings")
+        user_api_key = st.text_input("Gemini API Key", type="password", help="Leave blank if using Streamlit secrets.")
+
+        st.divider()
         st.header("Ingest New Repository")
         
         repo_url = st.text_input("GitHub URL", placeholder="https://github.com/user/repo")
@@ -157,10 +161,16 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Searching codebase and generating answer..."):
                 try:
+                    try:
+                        api_key = user_api_key or st.secrets.get("LLM_API_KEY") or st.secrets.get("GEMINI_API_KEY") or ""
+                    except Exception:
+                        api_key = user_api_key or ""
+                        
                     payload = {
                         "repository_id": selected_repo_id,
                         "question": prompt,
-                        "history_window": 5
+                        "history_window": 5,
+                        "llm_api_key": api_key
                     }
                     res = requests.post(f"{API_URL}/chat/", json=payload)
                     

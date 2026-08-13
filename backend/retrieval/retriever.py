@@ -12,7 +12,7 @@ class Retriever:
         self.llm = LLMProvider()
         self.reranker = Reranker(enabled=settings.enable_reranker)
         
-    def answer_question(self, repo_id: str, question: str) -> ChatResponse:
+    def answer_question(self, repo_id: str, question: str, llm_api_key: str = None) -> ChatResponse:
         t0 = time.time()
         
         # 1. Retrieve
@@ -60,7 +60,7 @@ class Retriever:
         # 4. Generate
         t1 = time.time()
         prompt = RAG_SYSTEM_PROMPT.format(context=context_str, question=question)
-        answer = self.llm.generate(prompt)
+        answer = self.llm.generate(prompt, api_key=llm_api_key)
         generation_time = time.time() - t1
         
         return ChatResponse(
