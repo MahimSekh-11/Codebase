@@ -80,14 +80,17 @@ def main():
         uploaded_file = st.file_uploader("Upload ZIP Repository", type=["zip"])
         if uploaded_file and st.button("Process ZIP", use_container_width=True):
             with st.spinner("Uploading and indexing..."):
-                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/zip")}
-                res = requests.post(f"{API_URL}/repository/upload", files=files)
-                if res.status_code == 200:
-                    st.success("Indexing started in background!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error(f"Error: {res.text}")
+                try:
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/zip")}
+                    res = requests.post(f"{API_URL}/repository/upload", files=files)
+                    if res.status_code == 200:
+                        st.success("Indexing started in background!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(f"Error from server: {res.text}")
+                except Exception as e:
+                    st.error(f"Failed to send file to server. Error: {e}")
                     
         st.divider()
         st.header("Repository Stats")
