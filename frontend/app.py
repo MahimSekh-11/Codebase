@@ -36,11 +36,22 @@ def main():
     st.title("🔍 CodeBase RAG")
     st.subheader("AI-Powered GitHub Repository Understanding Assistant")
 
-    # Backend warmup check (important on cloud deployments like Render)
+    # Backend warmup check — auto-refresh every 3s until the backend is ready.
+    # On cloud (Render), uvicorn takes a few seconds to start after Streamlit.
     if not is_backend_ready():
-        st.warning("⏳ Backend API is still warming up (loading embedding model)... Please wait a moment and refresh the page.")
-        st.info(f"Connecting to: `{API_URL}`")
-        st.stop()
+        if "warmup_attempts" not in st.session_state:
+            st.session_state.warmup_attempts = 0
+        st.session_state.warmup_attempts += 1
+
+        st.warning(f"⏳ Backend is starting up... (attempt {st.session_state.warmup_attempts})")
+        st.info(f"Connecting to backend at `{API_URL}`")
+        st.caption("This page will automatically refresh every 3 seconds until the backend is ready.")
+        progress = min(st.session_state.warmup_attempts * 10, 90)
+        st.progress(progress)
+        time.sleep(3)
+        st.rerun()
+        return
+
 
 
     # Sidebar: Ingestion & Repo Selection
