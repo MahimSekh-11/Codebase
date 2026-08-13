@@ -1,51 +1,108 @@
-import streamlit as st
-import requests
+import subprocess
+import sys
+import os
+import signal
 import time
 import urllib.parse
 from typing import List, Dict
 
+import streamlit as st
+import requests
+
 API_URL = "http://127.0.0.1:8000"
 
-def ensure_backend_running():
-    """Auto-start FastAPI backend in a background process if not already running."""
+_STAMP_FILE = "/tmp/backend_deploy_stamp"
+_PID_FILE = "/tmp/backend_pid"
+
+def _get_deploy_stamp():
+    """Use the modification time of this script as a unique deploy ID."""
     try:
-        res = requests.get(f"{API_URL}/health", timeout=1)
-        if res.status_code == 200:
-            return
+        return str(os.path.getmtime(__file__))
+    except Exception:
+        return "unknown"
+
+def _kill_old_backend():
+    """Kill previously spawned backend if PID file exists."""
+    try:
+        if os.path.exists(_PID_FILE):
+            with open(_PID_FILE) as f:
+                old_pid = int(f.read().strip())
+            try:
+                os.kill(old_pid, signal.SIGTERM)
+                time.sleep(1)
+            except Exception:
+                pass
+            os.remove(_PID_FILE)
     except Exception:
         pass
-    
-    import subprocess
-    import sys
-    import os
-    try:
-        env = os.environ.copy()
-        try:
-            # Force write secrets directly to a .env file so the backend's pydantic-settings is guaranteed to find it
-            with open(".env", "a") as f:
-                if "LLM_API_KEY" in st.secrets:
-                    f.write(f"\nLLM_API_KEY={st.secrets['LLM_API_KEY']}\n")
-                if "GEMINI_API_KEY" in st.secrets:
-                    f.write(f"\nLLM_API_KEY={st.secrets['GEMINI_API_KEY']}\n")
-                
-            env = os.environ.copy()
-            for k, v in st.secrets.items():
-                if isinstance(v, str):
-                    env[k] = v
-        except Exception:
-            pass
 
-        subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000", "--host", "127.0.0.1"],
+def ensure_backend_running():
+    """Start (or restart) the FastAPI backend, always using the latest deployed code."""
+    import subprocess, sys, os
+
+    current_stamp = _get_deploy_stamp()
+    last_stamp = ""
+    try:
+        if os.path.exists(_STAMP_FILE):
+            with open(_STAMP_FILE) as f:
+                last_stamp = f.read().strip()
+    except Exception:
+        pass
+
+    # If this is a fresh deployment (stamp changed) or backend is not responding, restart it
+    backend_alive = False
+    try:
+        res = requests.get(f"{API_URL}/health", timeout=2)
+        backend_alive = res.status_code == 200
+    except Exception:
+        pass
+
+    needs_restart = (not backend_alive) or (current_stamp != last_stamp)
+
+    if not needs_restart:
+        return  # Backend is healthy and code hasn't changed
+
+    # Kill old backend if running
+    _kill_old_backend()
+
+    # Build environment with secrets baked in
+    env = os.environ.copy()
+    try:
+        for k, v in st.secrets.items():
+            if isinstance(v, str):
+                env[k] = v
+        if "LLM_API_KEY" in st.secrets:
+            env["LLM_API_KEY"] = st.secrets["LLM_API_KEY"]
+        if "GEMINI_API_KEY" in st.secrets:
+            env["LLM_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        pass
+
+    # Find repo root (where backend/ package lives)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)  # go up from frontend/ to root
+
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.main:app",
+             "--port", "8000", "--host", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=env
+            env=env,
+            cwd=repo_root  # ensure backend package is importable
         )
-        time.sleep(3)
-    except Exception:
+        # Save PID for future restarts
+        with open(_PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+        # Save stamp so we don't restart again on next rerun
+        with open(_STAMP_FILE, "w") as f:
+            f.write(current_stamp)
+        time.sleep(4)  # wait for uvicorn to boot
+    except Exception as e:
         pass
 
 ensure_backend_running()
+
 
 st.set_page_config(
     page_title="CodeBase RAG",
